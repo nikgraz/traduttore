@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PolyGlot | Gemini Flash Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #e6ff01; font-family: 'Inter', sans-serif; }
+        .glass-ui { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+        .input-dark { background: transparent; border: none; outline: none; resize: none; color: rgb(245, 0, 0); font-size: 1.5rem; }
+        .output-dark { background: #1e293b; border-radius: 0 0 1rem 1rem; min-height: 280px; }
+        .btn-action { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-action:hover { background-color: #334155; transform: translateY(-1px); }
+        .loader { width: 24px; height: 24px; border: 3px solid #334155; border-top-color: #38bdf8; border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex items-center justify-center">
+
+    <div class="w-full max-w-6xl">
+        <div class="flex items-center justify-between mb-8 px-2">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20">
+                    <i class="fas fa-brain text-white text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-black tracking-tight italic">POLYGLOT <span>
+                </h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="loader" class="loader"></div>
+                <span class="text-[10px] font-mono text-blue-400 bg-blue-400/10 px-2 py-1 rounded border border-blue-400/20">MODEL: FLASH_LATEST</span>
+            </div>
+        </div>
+
+        <div class="glass-ui rounded-3xl overflow-hidden shadow-2xl">
+            <div class="flex items-center border-b border-white/5 p-4 bg-white/5">
+                <div class="flex items-center flex-1 justify-center gap-8">
+                    <select id="langFrom" class="bg-transparent font-bold text-sm uppercase tracking-widest outline-none cursor-pointer text-slate-400 hover:text-black transition">
+                        <option value="Italiano" selected>Italiano</option>
+                        <option value="Spagnolo">Spagnolo</option>
+                        <option value="Inglese">Inglese</option>
+                        <option value="Francese">Francese</option>
+                    </select>
+
+                    <button onclick="scambiaLingue()" class="btn-action p-3 rounded-full text-blue-400">
+                        <i class="fas fa-arrows-left-right text-lg"></i>
+                    </button>
+
+                    <select id="langTo" class="bg-transparent font-bold text-sm uppercase tracking-widest outline-none cursor-pointer text-slate-400 hover:text-white transition">
+                        <option value="Inglese" selected>Inglese</option>
+                        <option value="Italiano">Italiano</option>
+                        <option value="Spagnolo">Spagnolo</option>
+                        <option value="Tedesco">Tedesco</option>
+                        <option value="Giapponese">Giapponese</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2">
+                <div class="p-8 border-r border-white/5 min-h-[320px] flex flex-col justify-between">
+                    <textarea id="inputText" class="input-dark w-full h-full" placeholder="Inserisci il testo da tradurre..."></textarea>
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="avviaDettato()" class="btn-action p-3 rounded-xl text-slate-500 hover:text-blue-400"><i class="fas fa-microphone"></i></button>
+                    </div>
+                </div>
+
+                <div class="p-8 output-dark flex flex-col justify-between relative">
+                    <div id="resContainer" class="opacity-0 transition-opacity duration-500">
+                        <div id="outputText" class="text-2xl font-semibold text-white mb-6 leading-snug">Traduzione...</div>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl">
+                                <span class="text-[10px] font-black text-blue-400 uppercase tracking-widest block mb-2">Spiegazione Tutor</span>
+                                <p id="outputNote" class="text-sm text-slate-300 leading-relaxed italic"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="placeholderText" class="absolute inset-0 flex items-center justify-center text-slate-600 pointer-events-none">
+                        In attesa di analisi...
+                    </div>
+
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="copiaTesto()" class="btn-action p-3 rounded-xl text-slate-500 hover:text-blue-400"><i class="far fa-copy"></i></button>
+                        <button onclick="riproduciAudio()" class="btn-action p-3 rounded-xl text-slate-500 hover:text-blue-400"><i class="fas fa-volume-up"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="avviaProcesso()" id="btnMain" class="mt-8 w-full py-6 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-4 tracking-[0.2em] text-sm">
+            ELABORA
+            <i class="fas fa-bolt-lightning"></i>
+        </button>
+    </div>
+
+    <script>
+        // Configurazione API (Chiave aggiornata)
+        const API_KEY = "AIzaSyBlLrUpjUu3Cb32xEzl8jKmeZX_nwPfcbM";
+        // Utilizzo del modello Flash più recente disponibile
+        const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+
+        async function avviaProcesso() {
+            const testo = document.getElementById('inputText').value;
+            const sorgente = document.getElementById('langFrom').value;
+            const target = document.getElementById('langTo').value;
+            const output = document.getElementById('outputText');
+            const nota = document.getElementById('outputNote');
+            const loader = document.getElementById('loader');
+            const resContainer = document.getElementById('resContainer');
+            const placeholder = document.getElementById('placeholderText');
+
+            if (!testo.trim()) return;
+
+            // UI Loading
+            loader.style.display = "block";
+            resContainer.style.opacity = "0.3";
+            placeholder.classList.add('hidden');
+
+            const promptLingua = `Sei PolyGlot AI, un tutor esperto. 
+            Traduci in modo naturale da ${sorgente} a ${target} questo testo: "${testo}".
+            Formatta la risposta ESCLUSIVAMENTE come JSON:
+            {
+                "t": "testo tradotto",
+                "n": "una breve spiegazione del contesto o della grammatica in italiano"
+            }`;
+
+            try {
+                const response = await fetch(ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: promptLingua }] }],
+                        generationConfig: { 
+                            responseMimeType: "application/json",
+                            temperature: 0.2
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                const risultato = JSON.parse(data.candidates[0].content.parts[0].text);
+
+                // Update UI
+                output.innerText = risultato.t;
+                nota.innerText = risultato.n;
+                resContainer.style.opacity = "1";
+
+            } catch (err) {
+                console.error("Errore API:", err);
+                output.innerText = "Errore di connessione. Verifica la chiave API.";
+            } finally {
+                loader.style.display = "none";
+            }
+        }
+
+        // Fix per l'errore della console (rinominata da 'translate')
+        function scambiaLingue() {
+            const f = document.getElementById('langFrom');
+            const t = document.getElementById('langTo');
+            const tmp = f.value;
+            f.value = t.value;
+            t.value = tmp;
+        }
+
+        function copiaTesto() {
+            navigator.clipboard.writeText(document.getElementById('outputText').innerText);
+        }
+
+        function riproduciAudio() {
+            const t = document.getElementById('outputText').innerText;
+            const speech = new SpeechSynthesisUtterance(t);
+            speech.lang = document.getElementById('langTo').value === 'Inglese' ? 'en-US' : 'it-IT';
+            window.speechSynthesis.speak(speech);
+        }
+
+        function avviaDettato() {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if(!SpeechRec) return alert("Browser non supportato");
+            const rec = new SpeechRec();
+            rec.lang = 'it-IT';
+            rec.start();
+            rec.onresult = (e) => document.getElementById('inputText').value = e.results[0][0].transcript;
+        }
+    </script>
+</body>
+</html>
